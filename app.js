@@ -27,8 +27,12 @@
   var overviewPolylines = [];
   var overviewTimer = null;
   var overviewRequest = null;
+  var overviewTileCache = new Map();
   var overviewEndpoint = window.MINI_AMAP_TRAFFIC_API || '';
   var OVERVIEW_MAX_ZOOM = 12;
+  var OVERVIEW_TILE_DEGREES = 0.045;
+  var OVERVIEW_MAX_TILES = 36;
+  var OVERVIEW_CACHE_MS = 120000;
 
   // 路线规划状态
   var routeEnd = null;            // { pos: LngLat, name: string }
@@ -273,11 +277,62 @@
     overviewTimer = setTimeout(loadOverviewTraffic, 250);
   }
 
-  function getBoundsQuery() {
+  function splitOverviewBounds() {
     var bounds = map.getBounds();
     var southWest = bounds.getSouthWest();
     var northEast = bounds.getNorthEast();
-    return [southWest.lng, southWest.lat, northEast.lng, northEast.lat].join(',');
+    var tiles = [];
+
+    // 高德矩形交通态势单次适合小范围查询，拆成约 5 公里的网格再合并。
+    for (var west = southWest.lng; west < northEast.lng; west += OVERVIEW_TILE_DEGREES) {
+      for (var south = southWest.lat; south < northEast.lat; south += OVERVIEW_TILE_DEGREES) {
+        tiles.push({
+          west: west,
+          south: south,
+          east: Math.min(west + OVERVIEW_TILE_DEGREES, northEast.lng),
+          north: Math.min(south + OVERVIEW_TILE_DEGREES, northEast.lat),
+        });
+      }
+    }
+    return tiles;
+  }
+
+  function normalizeOverviewRoad(road) {
+    var points = String(road.polyline || '').split(';').map(function (point) {
+      return point.split(',').map(Number);
+    }).filter(function (point) {
+      return Number.isFinite(point[0]) && Number.isFinite(point[1]);
+    });
+
+    if (points.length < 2) return null;
+    return {
+      name: road.name || '',
+      status: road.status || '未知',
+      direction: road.direction || '',
+      points: points,
+    };
+  }
+
+  async function loadOverviewTile(tile, controller) {
+    var rectangle = [tile.west, tile.south, tile.east, tile.north].join(',');
+    var cached = overviewTileCache.get(rectangle);
+    if (cached && cached.expiresAt > Date.now()) return cached.roads;
+
+    var url = new URL(overviewEndpoint);
+    url.searchParams.set('key', key);
+    url.searchParams.set('rectangle', tile.west + ',' + tile.south + ';' + tile.east + ',' + tile.north);
+    url.searchParams.set('level', '6');
+    url.searchParams.set('extensions', 'all');
+    var response = await fetch(url.toString(), { signal: controller.signal });
+    if (!response.ok) throw new Error('Traffic request failed');
+    var payload = await response.json();
+    if (payload.status !== '1') throw new Error(payload.info || 'Traffic request failed');
+
+    var roads = (payload.trafficinfo && payload.trafficinfo.roads ? payload.trafficinfo.roads : [])
+      .map(normalizeOverviewRoad)
+      .filter(Boolean);
+    overviewTileCache.set(rectangle, { roads: roads, expiresAt: Date.now() + OVERVIEW_CACHE_MS });
+    return roads;
   }
 
   function overviewStyle(status) {
@@ -289,23 +344,35 @@
 
   async function loadOverviewTraffic() {
     if (!overviewEndpoint || !map || map.getZoom() > OVERVIEW_MAX_ZOOM) return;
+    if (!key) return;
     if (overviewRequest) overviewRequest.abort();
 
     var controller = new AbortController();
     overviewRequest = controller;
+    var tiles = splitOverviewBounds();
+    if (tiles.length > OVERVIEW_MAX_TILES) {
+      clearOverviewTraffic();
+      setTrafficHint('地图放大一点，可显示城区单线路况');
+      overviewRequest = null;
+      return;
+    }
     setTrafficHint('正在加载城区路况');
     try {
-      var separator = overviewEndpoint.indexOf('?') >= 0 ? '&' : '?';
-      var response = await fetch(
-        overviewEndpoint + separator + 'bounds=' + encodeURIComponent(getBoundsQuery()),
-        { signal: controller.signal }
-      );
-      if (!response.ok) throw new Error('Traffic overview unavailable');
-      var payload = await response.json();
-      if (!Array.isArray(payload.roads)) throw new Error('Invalid traffic overview');
+      var chunks = await Promise.all(tiles.map(function (tile) {
+        return loadOverviewTile(tile, controller);
+      }));
+      var seen = new Set();
+      var roads = chunks.flat().filter(function (road) {
+        var first = road.points[0];
+        var last = road.points[road.points.length - 1];
+        var id = road.name + '|' + road.direction + '|' + first.join(',') + '|' + last.join(',');
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
 
       clearOverviewTraffic();
-      payload.roads.forEach(function (road) {
+      roads.forEach(function (road) {
         if (!Array.isArray(road.points) || road.points.length < 2) return;
         var style = overviewStyle(road.status);
         var line = new AMap.Polyline({

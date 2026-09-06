@@ -1,2 +1,2 @@
-// 发布 Cloudflare 路况中转后，只需填写公开的 Worker 地址；这里不放高德密钥。
-window.MINI_AMAP_TRAFFIC_API = '';
+// 直连高德交通态势接口。网页会复用你本机已经保存的高德 Key。
+window.MINI_AMAP_TRAFFIC_API = 'https://restapi.amap.com/v3/traffic/status/rectangle';
