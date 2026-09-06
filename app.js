@@ -29,10 +29,12 @@
   var overviewRequest = null;
   var overviewTileCache = new Map();
   var overviewEndpoint = window.MINI_AMAP_TRAFFIC_API || '';
-  var OVERVIEW_MAX_ZOOM = 12;
+  // 到 13 级就开始补单线路况，避免城区刚缩小一档便丢掉红黄路段。
+  var OVERVIEW_MAX_ZOOM = 13;
   var OVERVIEW_TILE_DEGREES = 0.045;
   var OVERVIEW_MAX_TILES = 36;
   var OVERVIEW_CACHE_MS = 120000;
+  var TRAFFIC_REFRESH_MS = 120000;
 
   // 路线规划状态
   var routeEnd = null;            // { pos: LngLat, name: string }
@@ -342,6 +344,13 @@
     return { color: '#18A058', weight: 5 };
   }
 
+  function getOverviewErrorHint(error) {
+    var message = String(error && error.message || '');
+    if (/USER_KEY|KEY|key/i.test(message)) return '当前 Key 不支持路况概览';
+    if (/AREA|large/i.test(message)) return '地图放大一点，可显示城区单线路况';
+    return '城区路况暂时加载失败';
+  }
+
   async function loadOverviewTraffic() {
     if (!overviewEndpoint || !map || map.getZoom() > OVERVIEW_MAX_ZOOM) return;
     if (!key) return;
@@ -389,7 +398,7 @@
       });
       setTrafficHint('缩小概览：红色 = 拥堵');
     } catch (error) {
-      if (error.name !== 'AbortError') setTrafficHint('红色 = 拥堵');
+      if (error.name !== 'AbortError') setTrafficHint(getOverviewErrorHint(error));
     } finally {
       if (overviewRequest === controller) overviewRequest = null;
     }
@@ -1132,6 +1141,13 @@
     trafficVisible = true;
     trafficBtn.classList.add('active');
   });
+
+  // 停在城区概览页时也要更新，不能等司机手动缩放地图才换路况。
+  setInterval(function () {
+    if (document.hidden || !map || map.getZoom() > OVERVIEW_MAX_ZOOM) return;
+    overviewTileCache.clear();
+    scheduleOverviewTraffic();
+  }, TRAFFIC_REFRESH_MS);
 
   // Key 保存
   saveKey.addEventListener('click', function () {
