@@ -65,6 +65,7 @@ body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
 .btn-float { width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--bg); box-shadow: 0 2px 8px rgba(0,0,0,0.12); font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
 .btn-float:active { transform: scale(0.9); }
 .btn-float.active { background: var(--primary); color: white; }
+.btn-settings { color: var(--text2); font-size: 19px; }
 
 /* ===== 搜索页面（全屏） ===== */
 .search-page {

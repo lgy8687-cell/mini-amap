@@ -13,6 +13,7 @@
   var map = null;
   var key = localStorage.getItem('amap_key') || '';
   var securityCode = localStorage.getItem('amap_security') || '';
+  var trafficKey = localStorage.getItem('amap_traffic_key') || '';
   var currentLocation = null;     // LngLat
   var currentCity = '';
   var searchMarkers = [];
@@ -59,10 +60,12 @@
   var routeCardsEl = document.getElementById('route-cards');
   var locateBtn = document.getElementById('locate-btn');
   var trafficBtn = document.getElementById('traffic-btn');
+  var settingsBtn = document.getElementById('settings-btn');
   var trafficFocusHint = document.getElementById('traffic-focus-hint');
   var keyModal = document.getElementById('key-modal');
   var keyInput = document.getElementById('key-input');
   var securityInput = document.getElementById('security-input');
+  var trafficKeyInput = document.getElementById('traffic-key-input');
   var saveKey = document.getElementById('save-key');
   var keyError = document.getElementById('key-error');
 
@@ -321,7 +324,7 @@
     if (cached && cached.expiresAt > Date.now()) return cached.roads;
 
     var url = new URL(overviewEndpoint);
-    url.searchParams.set('key', key);
+    url.searchParams.set('key', trafficKey || key);
     url.searchParams.set('rectangle', tile.west + ',' + tile.south + ';' + tile.east + ',' + tile.north);
     url.searchParams.set('level', '6');
     url.searchParams.set('extensions', 'all');
@@ -353,7 +356,7 @@
 
   async function loadOverviewTraffic() {
     if (!overviewEndpoint || !map || map.getZoom() > OVERVIEW_MAX_ZOOM) return;
-    if (!key) return;
+    if (!trafficKey && !key) return;
     if (overviewRequest) overviewRequest.abort();
 
     var controller = new AbortController();
@@ -1140,6 +1143,16 @@
     trafficLayer.setMap(map);
     trafficVisible = true;
     trafficBtn.classList.add('active');
+    overviewTileCache.clear();
+    scheduleOverviewTraffic();
+  });
+
+  settingsBtn.addEventListener('click', function () {
+    keyInput.value = key;
+    securityInput.value = securityCode;
+    trafficKeyInput.value = trafficKey;
+    keyError.textContent = '';
+    keyModal.classList.remove('hidden');
   });
 
   // 停在城区概览页时也要更新，不能等司机手动缩放地图才换路况。
@@ -1155,11 +1168,18 @@
     if (!k) { keyError.textContent = '请输入Key'; return; }
     key = k;
     securityCode = securityInput.value.trim();
+    trafficKey = trafficKeyInput.value.trim();
     localStorage.setItem('amap_key', key);
     localStorage.setItem('amap_security', securityCode);
+    localStorage.setItem('amap_traffic_key', trafficKey);
+    overviewTileCache.clear();
     keyModal.classList.add('hidden');
     keyError.textContent = '';
-    loadMap();
+    if (map) {
+      scheduleOverviewTraffic();
+    } else {
+      loadMap();
+    }
   });
 
   // ===== 启动 =====
