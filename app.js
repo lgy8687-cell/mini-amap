@@ -13,7 +13,6 @@
   var map = null;
   var key = localStorage.getItem('amap_key') || '';
   var securityCode = localStorage.getItem('amap_security') || '';
-  var trafficKey = localStorage.getItem('amap_traffic_key') || '';
   var currentLocation = null;     // LngLat
   var currentCity = '';
   var searchMarkers = [];
@@ -30,12 +29,12 @@
   var overviewRequest = null;
   var overviewTileCache = new Map();
   var overviewEndpoint = window.MINI_AMAP_TRAFFIC_API || '';
-  // 到 13 级就开始补单线路况，避免城区刚缩小一档便丢掉红黄路段。
-  var OVERVIEW_MAX_ZOOM = 13;
-  var OVERVIEW_TILE_DEGREES = 0.045;
+  // 12 级及以下补城区中心线；更大范围仍交给原生路况，避免耗尽 Web 服务查询额度。
+  var OVERVIEW_MAX_ZOOM = 12;
+  var OVERVIEW_TILE_DEGREES = 0.06;
   var OVERVIEW_MAX_TILES = 36;
-  var OVERVIEW_CACHE_MS = 120000;
-  var TRAFFIC_REFRESH_MS = 120000;
+  var OVERVIEW_CACHE_MS = 300000;
+  var TRAFFIC_REFRESH_MS = 300000;
 
   // 路线规划状态
   var routeEnd = null;            // { pos: LngLat, name: string }
@@ -65,7 +64,6 @@
   var keyModal = document.getElementById('key-modal');
   var keyInput = document.getElementById('key-input');
   var securityInput = document.getElementById('security-input');
-  var trafficKeyInput = document.getElementById('traffic-key-input');
   var saveKey = document.getElementById('save-key');
   var keyError = document.getElementById('key-error');
 
@@ -324,7 +322,6 @@
     if (cached && cached.expiresAt > Date.now()) return cached.roads;
 
     var url = new URL(overviewEndpoint);
-    url.searchParams.set('key', trafficKey || key);
     url.searchParams.set('rectangle', tile.west + ',' + tile.south + ';' + tile.east + ',' + tile.north);
     url.searchParams.set('level', '6');
     url.searchParams.set('extensions', 'all');
@@ -356,7 +353,7 @@
 
   async function loadOverviewTraffic() {
     if (!overviewEndpoint || !map || map.getZoom() > OVERVIEW_MAX_ZOOM) return;
-    if (!trafficKey && !key) return;
+    if (!key) return;
     if (overviewRequest) overviewRequest.abort();
 
     var controller = new AbortController();
@@ -1150,7 +1147,6 @@
   settingsBtn.addEventListener('click', function () {
     keyInput.value = key;
     securityInput.value = securityCode;
-    trafficKeyInput.value = trafficKey;
     keyError.textContent = '';
     keyModal.classList.remove('hidden');
   });
@@ -1168,10 +1164,8 @@
     if (!k) { keyError.textContent = '请输入Key'; return; }
     key = k;
     securityCode = securityInput.value.trim();
-    trafficKey = trafficKeyInput.value.trim();
     localStorage.setItem('amap_key', key);
     localStorage.setItem('amap_security', securityCode);
-    localStorage.setItem('amap_traffic_key', trafficKey);
     overviewTileCache.clear();
     keyModal.classList.add('hidden');
     keyError.textContent = '';

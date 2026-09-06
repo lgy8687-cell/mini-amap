@@ -95,15 +95,12 @@
   <div id="key-modal" class="modal hidden">
     <div class="modal-content">
       <h2>配置高德地图 Key</h2>
-      <p>地图使用 JS API Key；缩小时的城区单线路况需要另填 Web 服务 Key。两把 Key 都只保存在本机浏览器。</p>
+      <p>地图使用 JS API Key。缩小时的城区单线路况已由 Cloudflare 安全处理，不需要再填第二把 Key。</p>
       <div class="key-input-group">
         <input type="text" id="key-input" placeholder="高德 JS API Key">
       </div>
       <div class="key-input-group">
         <input type="text" id="security-input" placeholder="安全密钥（可选）">
-      </div>
-      <div class="key-input-group">
-        <input type="text" id="traffic-key-input" placeholder="高德 Web 服务 Key（城区路况）">
       </div>
       <button id="save-key" class="btn-primary btn-full">保存并加载</button>
       <p id="key-error" class="error-text"></p>
