@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="极简地图">
+  <meta name="apple-mobile-web-app-title" content="网约车路况">
   <meta name="theme-color" content="#3388FF">
-  <title>极简地图</title>
+  <title>网约车路况</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -21,12 +21,34 @@
   <!-- 首页搜索栏（胶囊悬浮） -->
   <div id="home-search" class="home-search">
     <span class="search-icon">🔍</span>
-    <span class="search-placeholder">你要去哪里</span>
+    <span class="search-placeholder">查目的地</span>
   </div>
+
+  <!-- 路况始终优先：用低干扰底图突出红黄绿道路 -->
+  <div class="traffic-focus" aria-live="polite">
+    <span class="traffic-focus-dot"></span>
+    <span>实时路况优先显示</span>
+    <span class="traffic-focus-hint">红色 = 拥堵</span>
+  </div>
+
+  <!-- 网约车常用目的地，单手即可从当前位置规划驾车路线 -->
+  <section class="driver-shortcuts" aria-label="常用目的地">
+    <div class="driver-shortcuts-title">从当前位置出发</div>
+    <div class="driver-shortcuts-grid">
+      <button class="driver-shortcut" data-destination="福州火车站" data-display-name="福州站">
+        <span class="driver-shortcut-main">福州站</span>
+        <span class="driver-shortcut-sub">查看实时路况</span>
+      </button>
+      <button class="driver-shortcut" data-destination="福州南站" data-display-name="福州南站">
+        <span class="driver-shortcut-main">福州南站</span>
+        <span class="driver-shortcut-sub">查看实时路况</span>
+      </button>
+    </div>
+  </section>
 
   <!-- 右下角浮动按钮 -->
   <div class="float-btns">
-    <button id="traffic-btn" class="btn-float active" title="路况">🚦</button>
+    <button id="traffic-btn" class="btn-float active" title="刷新路况" aria-label="刷新路况">🚦</button>
     <button id="locate-btn" class="btn-float" title="定位">📍</button>
   </div>
 
@@ -57,12 +79,9 @@
         <button id="swap-btn" class="swap-btn">⇅</button>
       </div>
     </div>
-    <!-- 出行方式Tab -->
+    <!-- 网约车只保留驾车，不让无关方式分走注意力 -->
     <div class="route-modes">
       <label class="route-mode active" data-mode="driving">🚗 驾车</label>
-      <label class="route-mode" data-mode="transit">🚌 公交</label>
-      <label class="route-mode" data-mode="walking">🚶 步行</label>
-      <label class="route-mode" data-mode="riding">🚴 骑行</label>
     </div>
     <!-- 路线卡片区域 -->
     <div id="route-bottom" class="route-bottom">

@@ -1,7 +1,7 @@
 {
-  "name": "极简地图",
-  "short_name": "极简地图",
-  "description": "干净无广告的精简版地图工具",
+  "name": "网约车路况",
+  "short_name": "网约车路况",
+  "description": "网约车司机查看福州实时路况与常用目的地的快捷工具",
   "start_url": "/mini-amap/index.html",
   "scope": "/mini-amap/",
   "display": "standalone",

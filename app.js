@@ -23,6 +23,7 @@
   var autocompleteTimer = null;
   var trafficLayer = null;
   var trafficVisible = true;
+  var quickDestinationButtons = document.querySelectorAll('.driver-shortcut');
 
   // 路线规划状态
   var routeEnd = null;            // { pos: LngLat, name: string }
@@ -226,6 +227,23 @@
     doRoutePlan();
   }
 
+  // 常用目的地走一次 POI 搜索，避免将车站坐标写死后与高德数据脱节。
+  function openQuickDestination(keyword, displayName) {
+    if (!map) return;
+
+    var placeSearch = new AMap.PlaceSearch({
+      city: '福州',
+      citylimit: true,
+      pageSize: 5,
+    });
+
+    placeSearch.search(keyword, function (status, result) {
+      if (status !== 'complete' || !result.poiList || !result.poiList.pois.length) return;
+      var poi = result.poiList.pois[0];
+      setRouteDestination(new AMap.LngLat(poi.location.lng, poi.location.lat), displayName || poi.name);
+    });
+  }
+
   // ===== 加载地图 =====
   function loadMap() {
     if (window.AMap) { initMap(); return; }
@@ -252,21 +270,31 @@
 
   function initMap() {
     map = new AMap.Map('map-container', {
-      zoom: 13,
+      // 城区全貌仍能看清红黄绿主干道，避免缩得太小后路况变成细线。
+      zoom: 12,
       center: [116.397428, 39.90923],
+      zooms: [10, 20],
+      // 去掉普通道路的颜色干扰，让实时路况成为第一视觉层。
+      mapStyle: 'amap://styles/whitesmoke',
       resizeEnable: true,
     });
 
     // 默认开启实时路况图层
     trafficLayer = new AMap.TileLayer.Traffic({
-      zIndex: 10,
+      // 路况在规划路线之上：蓝线不能遮住红色拥堵段。
+      zIndex: 120,
       autoRefresh: true,
-      interval: 180,
+      interval: 120,
     });
     trafficLayer.setMap(map);
     trafficVisible = true;
 
     doLocate();
+
+    // 10 级是看福州城区路况仍有辨识度的下限。
+    map.on('zoomend', function () {
+      if (map.getZoom() < 10) map.setZoom(10);
+    });
 
     // 点击地图：逆地理编码 + 信息窗口
     map.on('click', function (e) {
@@ -612,7 +640,8 @@
         lineJoin: 'round',
         lineCap: 'round',
         showDir: isSelected,
-        zIndex: isSelected ? 100 : 50,
+        // 让实时路况层始终盖在路线线条之上，堵点不被推荐线遮挡。
+        zIndex: isSelected ? 90 : 60,
       });
       map.add(polyline);
       routePolylines.push(polyline);
@@ -687,7 +716,7 @@
           strokeStyle: 'solid',
           lineJoin: 'round',
           lineCap: 'round',
-          zIndex: isSelected ? 100 : 50,
+          zIndex: isSelected ? 90 : 60,
         });
         map.add(polyline);
         routePolylines.push(polyline);
@@ -947,18 +976,23 @@
     doLocate();
   });
 
-  // 路况开关
+  // 常用站点：从当前位置直接规划驾车路线。
+  quickDestinationButtons.forEach(function (button) {
+    button.addEventListener('click', function () {
+      openQuickDestination(
+        button.getAttribute('data-destination'),
+        button.getAttribute('data-display-name')
+      );
+    });
+  });
+
+  // 路况保持开启。这个按钮只负责重新挂载图层，防止误触后看不到拥堵。
   trafficBtn.addEventListener('click', function () {
     if (!trafficLayer) return;
-    if (trafficVisible) {
-      trafficLayer.setMap(null);
-      trafficVisible = false;
-      trafficBtn.classList.remove('active');
-    } else {
-      trafficLayer.setMap(map);
-      trafficVisible = true;
-      trafficBtn.classList.add('active');
-    }
+    trafficLayer.setMap(null);
+    trafficLayer.setMap(map);
+    trafficVisible = true;
+    trafficBtn.classList.add('active');
   });
 
   // Key 保存
