@@ -133,16 +133,17 @@ body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
 
 /* ===== 路线规划页 ===== */
 .route-page {
-  position: fixed; inset: 0; z-index: 150; background: var(--bg);
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 150; background: var(--bg);
   display: flex; flex-direction: column;
-  transform: translateY(0); transition: transform 0.25s ease;
+  max-height: 44vh; border-radius: 18px 18px 0 0;
+  box-shadow: 0 -4px 18px rgba(0,0,0,0.16); transform: translateY(0); transition: transform 0.25s ease;
 }
 .route-page.hidden { transform: translateY(100%); pointer-events: none; }
 
 /* 顶部起终点 */
 .route-top {
   display: flex; align-items: flex-start; gap: 8px;
-  padding: var(--safe-top) 12px 12px; background: var(--bg);
+  padding: 12px; background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 .route-back { background: none; border: none; font-size: 24px; color: var(--text); cursor: pointer; padding: 8px 4px; flex-shrink: 0; }
@@ -241,5 +242,5 @@ body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
   .home-search { max-width: 440px; left: 50%; transform: translateX(-50%); top: calc(16px + var(--safe-top)); }
   .traffic-focus { left: max(16px, calc(50% - 220px)); }
   .driver-shortcuts { width: 360px; left: 50%; right: auto; transform: translateX(-50%); }
-  .route-page { max-width: 480px; left: 50%; margin-left: -240px; border-radius: 16px; top: 20px; bottom: 20px; overflow: hidden; }
+  .route-page { max-width: 480px; left: 50%; right: auto; width: 480px; margin-left: -240px; border-radius: 16px; bottom: 20px; overflow: hidden; }
 }

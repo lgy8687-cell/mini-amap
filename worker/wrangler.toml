@@ -1,0 +1,6 @@
+name = "mini-amap-traffic"
+main = "traffic-overview.js"
+compatibility_date = "2026-09-06"
+
+# 部署后通过以下命令保存密钥，切勿写入仓库：
+# npx wrangler secret put AMAP_TRAFFIC_KEY

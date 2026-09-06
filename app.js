@@ -24,6 +24,11 @@
   var trafficLayer = null;
   var trafficVisible = true;
   var quickDestinationButtons = document.querySelectorAll('.driver-shortcut');
+  var overviewPolylines = [];
+  var overviewTimer = null;
+  var overviewRequest = null;
+  var overviewEndpoint = window.MINI_AMAP_TRAFFIC_API || '';
+  var OVERVIEW_MAX_ZOOM = 12;
 
   // 路线规划状态
   var routeEnd = null;            // { pos: LngLat, name: string }
@@ -48,6 +53,7 @@
   var routeCardsEl = document.getElementById('route-cards');
   var locateBtn = document.getElementById('locate-btn');
   var trafficBtn = document.getElementById('traffic-btn');
+  var trafficFocusHint = document.getElementById('traffic-focus-hint');
   var keyModal = document.getElementById('key-modal');
   var keyInput = document.getElementById('key-input');
   var securityInput = document.getElementById('security-input');
@@ -244,6 +250,84 @@
     });
   }
 
+  // ===== 缩小时的城区路况概览 =====
+  // 原生路况瓦片在缩小时会省略不少支路。接入中转服务后，用道路中心线补齐概览层。
+  function clearOverviewTraffic() {
+    overviewPolylines.forEach(function (line) { line.setMap(null); });
+    overviewPolylines = [];
+  }
+
+  function setTrafficHint(text) {
+    if (trafficFocusHint) trafficFocusHint.textContent = text;
+  }
+
+  function scheduleOverviewTraffic() {
+    if (!overviewEndpoint || !map) return;
+    if (map.getZoom() > OVERVIEW_MAX_ZOOM) {
+      clearOverviewTraffic();
+      setTrafficHint('红色 = 拥堵');
+      return;
+    }
+
+    if (overviewTimer) clearTimeout(overviewTimer);
+    overviewTimer = setTimeout(loadOverviewTraffic, 250);
+  }
+
+  function getBoundsQuery() {
+    var bounds = map.getBounds();
+    var southWest = bounds.getSouthWest();
+    var northEast = bounds.getNorthEast();
+    return [southWest.lng, southWest.lat, northEast.lng, northEast.lat].join(',');
+  }
+
+  function overviewStyle(status) {
+    if (status === '严重拥堵') return { color: '#B71C1C', weight: 8 };
+    if (status === '拥堵') return { color: '#F44336', weight: 7 };
+    if (status === '缓行') return { color: '#FF9800', weight: 6 };
+    return { color: '#18A058', weight: 5 };
+  }
+
+  async function loadOverviewTraffic() {
+    if (!overviewEndpoint || !map || map.getZoom() > OVERVIEW_MAX_ZOOM) return;
+    if (overviewRequest) overviewRequest.abort();
+
+    var controller = new AbortController();
+    overviewRequest = controller;
+    setTrafficHint('正在加载城区路况');
+    try {
+      var separator = overviewEndpoint.indexOf('?') >= 0 ? '&' : '?';
+      var response = await fetch(
+        overviewEndpoint + separator + 'bounds=' + encodeURIComponent(getBoundsQuery()),
+        { signal: controller.signal }
+      );
+      if (!response.ok) throw new Error('Traffic overview unavailable');
+      var payload = await response.json();
+      if (!Array.isArray(payload.roads)) throw new Error('Invalid traffic overview');
+
+      clearOverviewTraffic();
+      payload.roads.forEach(function (road) {
+        if (!Array.isArray(road.points) || road.points.length < 2) return;
+        var style = overviewStyle(road.status);
+        var line = new AMap.Polyline({
+          path: road.points,
+          strokeColor: style.color,
+          strokeWeight: style.weight,
+          strokeOpacity: 0.95,
+          lineJoin: 'round',
+          lineCap: 'round',
+          zIndex: 140,
+        });
+        map.add(line);
+        overviewPolylines.push(line);
+      });
+      setTrafficHint('缩小概览：红色 = 拥堵');
+    } catch (error) {
+      if (error.name !== 'AbortError') setTrafficHint('红色 = 拥堵');
+    } finally {
+      if (overviewRequest === controller) overviewRequest = null;
+    }
+  }
+
   // ===== 加载地图 =====
   function loadMap() {
     if (window.AMap) { initMap(); return; }
@@ -294,7 +378,9 @@
     // 10 级是看福州城区路况仍有辨识度的下限。
     map.on('zoomend', function () {
       if (map.getZoom() < 10) map.setZoom(10);
+      scheduleOverviewTraffic();
     });
+    map.on('moveend', scheduleOverviewTraffic);
 
     // 点击地图：逆地理编码 + 信息窗口
     map.on('click', function (e) {
@@ -668,7 +754,7 @@
     });
 
     if (routePolylines.length > 0) {
-      map.setFitView(routePolylines, false, [80, 80, 80, 80]);
+      map.setFitView(routePolylines, false, [80, 80, Math.min(360, Math.round(window.innerHeight * 0.42)), 80]);
     }
   }
 
@@ -752,7 +838,7 @@
     });
 
     if (routePolylines.length > 0) {
-      map.setFitView(routePolylines, false, [80, 80, 80, 80]);
+      map.setFitView(routePolylines, false, [80, 80, Math.min(360, Math.round(window.innerHeight * 0.42)), 80]);
     }
   }
 
@@ -827,9 +913,6 @@
         '</div>';
     });
 
-    // 开始导航按钮
-    html += '<button class="nav-start-btn" id="nav-start-btn">开始导航</button>';
-
     routeCardsEl.innerHTML = html;
     routeLoading.style.display = 'none';
 
@@ -850,18 +933,6 @@
       });
     });
 
-    // 开始导航按钮 → 打开高德地图 APP
-    var navBtn = document.getElementById('nav-start-btn');
-    if (navBtn) {
-      navBtn.addEventListener('click', function () {
-        if (!routeStart || !routeEnd) return;
-        var slng = routeStart.pos.lng, slat = routeStart.pos.lat;
-        var elng = routeEnd.pos.lng, elat = routeEnd.pos.lat;
-        var ename = encodeURIComponent(routeEnd.name);
-        // 打开高德地图网页版导航
-        window.open('https://uri.amap.com/navigation?from=' + slng + ',' + slat + ',我的位置&to=' + elng + ',' + elat + ',' + ename + '&mode=car&policy=1', '_blank');
-      });
-    }
   }
 
   function clearRouteDisplay() {
