@@ -283,6 +283,14 @@
     });
   }
 
+  // 页面按钮的直接入口，避免移动端事件绑定或旧缓存导致点击无响应。
+  window.miniAmapOpenStation = function (button) {
+    openQuickDestination(
+      button.getAttribute('data-destination'),
+      button.getAttribute('data-display-name')
+    );
+  };
+
   // ===== 缩小时的城区路况概览 =====
   // 原生路况瓦片在缩小时会省略不少支路。接入中转服务后，用道路中心线补齐概览层。
   function clearOverviewTraffic() {
@@ -1108,16 +1116,6 @@
     doLocate(function (located) {
       if (located) setTrafficHint('当前位置已更新');
       else setTrafficHint('定位失败，请允许浏览器定位');
-    });
-  });
-
-  // 常用站点：从当前位置直接规划驾车路线。
-  quickDestinationButtons.forEach(function (button) {
-    button.addEventListener('click', function () {
-      openQuickDestination(
-        button.getAttribute('data-destination'),
-        button.getAttribute('data-display-name')
-      );
     });
   });
 
