@@ -24,6 +24,10 @@
   var trafficLayer = null;
   var trafficVisible = true;
   var quickDestinationButtons = document.querySelectorAll('.driver-shortcut');
+  var quickDestinationFallbacks = {
+    '福州站': [119.3133, 26.1158],
+    '福州南站': [119.3852, 25.9916],
+  };
   var overviewPolylines = [];
   var overviewTimer = null;
   var overviewRequest = null;
@@ -242,7 +246,17 @@
 
   // 常用目的地走一次 POI 搜索，避免将车站坐标写死后与高德数据脱节。
   function openQuickDestination(keyword, displayName) {
-    if (!map) return;
+    if (!map) {
+      setTrafficHint('地图正在加载，请稍后再试');
+      return;
+    }
+
+    routeStartText.textContent = '正在获取当前位置';
+    routeEndText.textContent = displayName;
+    routeLoading.style.display = 'block';
+    routeLoading.textContent = '正在查询' + displayName + '路线...';
+    routeCardsEl.innerHTML = '';
+    showRoutePage();
 
     var placeSearch = new AMap.PlaceSearch({
       city: '福州',
@@ -251,9 +265,20 @@
     });
 
     placeSearch.search(keyword, function (status, result) {
-      if (status !== 'complete' || !result.poiList || !result.poiList.pois.length) return;
-      var poi = result.poiList.pois[0];
-      setRouteDestination(new AMap.LngLat(poi.location.lng, poi.location.lat), displayName || poi.name);
+      if (status === 'complete' && result.poiList && result.poiList.pois.length) {
+        var poi = result.poiList.pois[0];
+        routeLoading.textContent = '正在规划路线...';
+        setRouteDestination(new AMap.LngLat(poi.location.lng, poi.location.lat), displayName || poi.name);
+        return;
+      }
+
+      var fallback = quickDestinationFallbacks[displayName];
+      if (fallback) {
+        routeLoading.textContent = '正在规划路线...';
+        setRouteDestination(new AMap.LngLat(fallback[0], fallback[1]), displayName);
+      } else {
+        routeLoading.textContent = '没有找到' + displayName + '，请稍后重试';
+      }
     });
   }
 
@@ -465,14 +490,20 @@
   }
 
   // ===== 定位 =====
-  function doLocate() {
-    if (!map) return;
+  function doLocate(callback) {
+    if (!map) {
+      if (callback) callback(false);
+      return;
+    }
     var geo = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 10000 });
     geo.getCurrentPosition(function (status, result) {
       if (status === 'complete') {
         currentLocation = result.position;
         map.setCenter(result.position);
         updateCurrentCity(result.position);
+        if (callback) callback(true);
+      } else if (callback) {
+        callback(false);
       }
     });
   }
@@ -639,10 +670,16 @@
 
     var startPos = currentLocation;
     if (!startPos) {
-      doLocate();
       routeLoading.style.display = 'block';
+      routeLoading.textContent = '正在获取当前位置，请允许定位';
       routeCardsEl.innerHTML = '';
-      setTimeout(function () { doRoutePlan(); }, 2000);
+      doLocate(function (located) {
+        if (located) {
+          doRoutePlan();
+        } else {
+          routeLoading.textContent = '无法获取当前位置，请点右侧定位按钮后重试';
+        }
+      });
       return;
     }
 
@@ -1067,7 +1104,10 @@
 
   // 定位按钮
   locateBtn.addEventListener('click', function () {
-    doLocate();
+    doLocate(function (located) {
+      if (located) setTrafficHint('当前位置已更新');
+      else setTrafficHint('定位失败，请允许浏览器定位');
+    });
   });
 
   // 常用站点：从当前位置直接规划驾车路线。
