@@ -6,7 +6,8 @@
   'use strict';
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/mini-amap/sw.js').catch(function () {});
+    var cacheVersion = window.MINI_AMAP_VERSION || 'v1';
+    navigator.serviceWorker.register('/mini-amap/sw.js?v=' + encodeURIComponent(cacheVersion)).catch(function () {});
   }
 
   // ===== 状态 =====

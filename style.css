@@ -42,6 +42,12 @@ body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 .traffic-focus-dot { width: 8px; height: 8px; border-radius: 50%; background: #E53935; box-shadow: 0 0 0 2px rgba(229,57,53,0.18); }
 .traffic-focus-hint { color: #D32F2F; font-weight: 600; }
+.app-version {
+  position: fixed; top: calc(101px + var(--safe-top)); right: 16px; z-index: 160;
+  padding: 3px 7px; border-radius: 5px; color: #D32F2F;
+  background: rgba(255,255,255,0.88); font-size: 11px; font-weight: 700;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.12); pointer-events: none;
+}
 
 /* ===== 网约车快捷目的地 ===== */
 .driver-shortcuts {
