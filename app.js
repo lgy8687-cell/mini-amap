@@ -795,31 +795,18 @@
 
       var polyline = new AMap.Polyline({
         path: path,
-        strokeColor: isSelected ? '#3388FF' : '#B0C4DE',
+        strokeColor: isSelected ? '#16A34A' : '#AAB7C4',
         strokeWeight: isSelected ? 10 : 5,
         strokeOpacity: isSelected ? 1 : 0.6,
-        strokeStyle: 'solid',
         lineJoin: 'round',
         lineCap: 'round',
         showDir: isSelected,
-        // 让实时路况层始终盖在路线线条之上，堵点不被推荐线遮挡。
+        // 选中路线用实线，其他路线用虚线，方便司机在地图上比较走向。
+        strokeStyle: isSelected ? 'solid' : 'dashed',
         zIndex: isSelected ? 90 : 60,
       });
       map.add(polyline);
       routePolylines.push(polyline);
-
-      // 路线中间时间标签
-      var midIdx = Math.floor(path.length / 2);
-      var timeStr = formatTime(route.time);
-      var labelBg = isSelected ? '#3388FF' : '#B0C4DE';
-      var label = new AMap.Marker({
-        position: path[midIdx],
-        content: '<div style="background:' + labelBg + ';color:white;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:500;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,0.3);">' + timeStr + '</div>',
-        offset: new AMap.Pixel(-30, -10),
-        zIndex: isSelected ? 150 : 80,
-      });
-      map.add(label);
-      routeLabels.push(label);
 
       // 点击路线切换选中
       polyline.on('click', function () {
@@ -830,7 +817,7 @@
     });
 
     if (routePolylines.length > 0) {
-      map.setFitView(routePolylines, false, [80, 80, Math.min(360, Math.round(window.innerHeight * 0.42)), 80]);
+      map.setFitView(routePolylines, false, [150, 80, Math.min(300, Math.round(window.innerHeight * 0.30)), 80]);
     }
   }
 
@@ -938,53 +925,13 @@
   function renderRouteCards() {
     var html = '';
     allRouteData.forEach(function (r, idx) {
-      var route = r.route;
       var isSelected = (idx === selectedRouteIndex);
-      var timeStr, distStr, lights = 0, tag = r.policy.tag;
-
-      if (r.mode === 'transit') {
-        // 公交方案
-        timeStr = formatTime(route.time);
-        distStr = formatDistance(route.distance || 0);
-        // 公交通常没有红绿灯数据
-      } else {
-        // 驾车/步行/骑行
-        timeStr = formatTime(route.time);
-        distStr = formatDistance(route.distance);
-        if (route.steps) {
-          lights = route.steps.filter(function (s) { return s.assistant_action && s.assistant_action.indexOf('红绿灯') >= 0; }).length;
-        }
-      }
-
-      // 路况标签（简单估算）
-      var trafficTag = '';
-      if (r.mode === 'driving') {
-        var avgSpeed = route.distance / (route.time || 1) * 3.6; // km/h
-        if (avgSpeed > 40) {
-          trafficTag = '<span class="route-card-traffic-tag traffic-smooth">畅通</span>';
-        } else if (avgSpeed > 20) {
-          trafficTag = '<span class="route-card-traffic-tag traffic-slow">缓行</span>';
-        } else {
-          trafficTag = '<span class="route-card-traffic-tag traffic-jam">拥堵</span>';
-        }
-      }
-
-      var infoParts = [distStr];
-      if (lights > 0) infoParts.push('🚦' + lights);
-      if (r.mode === 'transit' && route.segments) {
-        var busCount = route.segments.filter(function (s) { return s.transit_mode; }).length;
-        if (busCount > 0) infoParts.push(busCount + '段乘车');
-      }
-
       html += '<div class="route-card-item' + (isSelected ? ' active' : '') + '" data-index="' + idx + '">' +
         '<div class="route-card-row1">' +
-        '<span class="route-card-time">' + timeStr + '</span>' +
-        '<span class="route-card-distance">' + distStr + '</span>' +
-        trafficTag +
+        '<span class="route-card-time">方案' + (idx + 1) + '</span>' +
         '</div>' +
         '<div class="route-card-row2">' +
-        '<span>' + infoParts.join(' · ') + '</span>' +
-        '<span class="route-card-tag">' + tag + '</span>' +
+        '<span class="route-card-tag">' + (isSelected ? '当前路线' : '点击查看') + '</span>' +
         '</div>' +
         '</div>';
     });

@@ -63,7 +63,7 @@
     <div id="search-body" class="search-body"></div>
   </div>
 
-  <!-- 路线规划页 -->
+  <!-- 路线选择浮层：地图保持全屏可见，顶部和底部承载路线选择 -->
   <div id="route-page" class="route-page hidden">
     <!-- 顶部起终点 -->
     <div class="route-top">
@@ -78,13 +78,13 @@
           <span id="route-end-text" class="endpoint-text">终点</span>
         </div>
         <button id="swap-btn" class="swap-btn">⇅</button>
+        </div>
+        <!-- 网约车只保留驾车，不让无关方式分走注意力 -->
+        <div class="route-modes">
+          <label class="route-mode active" data-mode="driving">🚗 驾车</label>
+        </div>
       </div>
-    </div>
-    <!-- 网约车只保留驾车，不让无关方式分走注意力 -->
-    <div class="route-modes">
-      <label class="route-mode active" data-mode="driving">🚗 驾车</label>
-    </div>
-    <!-- 路线卡片区域 -->
+    <!-- 只显示路线方案，不显示时间、距离和导航按钮 -->
     <div id="route-bottom" class="route-bottom">
       <div class="route-loading" id="route-loading">正在规划路线...</div>
       <div id="route-cards" class="route-cards-list"></div>
